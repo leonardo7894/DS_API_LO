@@ -51,3 +51,63 @@ def artistas():
 
 
 
+@app.route("/api/genero")
+def genero():
+    args = request.args
+    pagina = int(args.get('page', '1'))
+    descartar = (pagina-1) * resultados_por_pag
+    db = abrirConexion()
+    cursor = db.cursor()
+    cursor.execute("SELECT COUNT(*) AS cant FROM genres;")
+    cant = cursor.fetchone()['cant']
+    paginas = ceil(cant / resultados_por_pag)
+    print(pagina)
+    print(paginas)
+    if pagina < 1 or  pagina > paginas:
+       print("error")
+       return f"La página {pagina} es inexistente", 418
+    cursor.execute(""" SELECT GenreId, Name 
+                        FROM genres LIMIT ? OFFSET ?; """, 
+                        (resultados_por_pag,descartar))
+    lista = cursor.fetchall()
+    cerrarConexion()
+    siguiente = None
+    anterior = None
+    if pagina > 1:
+       anterior = url_for('genero', page=pagina-1)
+    if pagina < paginas:
+       siguiente = url_for('genero', page=pagina+1)
+    info = { 'count' : cant, 'pages': paginas,
+             'next' : siguiente, 'prev' : anterior }
+    res = { 'info' : info, 'results' : lista}
+    return jsonify(res)
+
+
+@app.route("/api/artista/<int:id>")
+def artista(id):
+   db = abrirConexion()
+   cursor = db.execute("SELECT ArtistId, Name FROM artists WHERE ArtistId=?;", (id,))
+   artista = cursor.fetchone()
+   url = url_for('artista', id = id)
+   res = { "ArtistId" : artista['ArtistId'],
+          "name" : artista['Name'],
+          "url": url}
+   return jsonify(res)
+
+
+
+@app.route("/api/album/<int:id>")
+def album(id):
+   db = abrirConexion()
+   cursor = db.execute("""SELECT AlbumId, Title, a.ArtistId, Name FROM albums a 
+                       INNER JOIN artists ar ON a.ArtistId = ar.ArtistId WHERE AlbumId=?;""", (id,))
+   album = cursor.fetchone()
+   url = url_for('album', id = id)
+   url2 = url_for('artista', id = id)
+   res = {"AlbumId" : album['AlbumId'],
+          "ArtistId" : album['ArtistId'],
+          "Title" : album['Title'],
+          "url": url,
+          "Artist" : {"Name" : album['Name'],
+                     "url" : url2}}
+   return jsonify(res)
