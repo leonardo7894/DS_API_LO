@@ -39,9 +39,9 @@ def artistas():
     siguiente = None
     anterior = None
     if pagina > 1:
-       anterior = url_for('artistas', page=pagina-1)
+       anterior = url_for('artistas', page=pagina-1, _external=True)
     if pagina < paginas:
-       siguiente = url_for('artistas', page=pagina+1)
+       siguiente = url_for('artistas', page=pagina+1, _external=True)
     info = { 'count' : cant, 'pages': paginas,
              'next' : siguiente, 'prev' : anterior }
     res = { 'info' : info, 'results' : lista}
@@ -52,7 +52,7 @@ def artistas():
 
 
 @app.route("/api/genero")
-def genero():
+def generos():
     args = request.args
     pagina = int(args.get('page', '1'))
     descartar = (pagina-1) * resultados_por_pag
@@ -61,10 +61,7 @@ def genero():
     cursor.execute("SELECT COUNT(*) AS cant FROM genres;")
     cant = cursor.fetchone()['cant']
     paginas = ceil(cant / resultados_por_pag)
-    print(pagina)
-    print(paginas)
     if pagina < 1 or  pagina > paginas:
-       print("error")
        return f"La página {pagina} es inexistente", 418
     cursor.execute(""" SELECT GenreId, Name 
                         FROM genres LIMIT ? OFFSET ?; """, 
@@ -74,9 +71,9 @@ def genero():
     siguiente = None
     anterior = None
     if pagina > 1:
-       anterior = url_for('genero', page=pagina-1)
+       anterior = url_for('generos', page=pagina-1, _external=True)
     if pagina < paginas:
-       siguiente = url_for('genero', page=pagina+1)
+       siguiente = url_for('generos', page=pagina+1, _external=True)
     info = { 'count' : cant, 'pages': paginas,
              'next' : siguiente, 'prev' : anterior }
     res = { 'info' : info, 'results' : lista}
@@ -88,26 +85,49 @@ def artista(id):
    db = abrirConexion()
    cursor = db.execute("SELECT ArtistId, Name FROM artists WHERE ArtistId=?;", (id,))
    artista = cursor.fetchone()
-   url = url_for('artista', id = id)
+   url = url_for('artista', id = id, _external=True)
    res = { "ArtistId" : artista['ArtistId'],
           "name" : artista['Name'],
           "url": url}
    return jsonify(res)
 
 
+@app.route("/api/albums")
+def albums():
+    args = request.args
+    pagina = int(args.get('page', '1'))
+    descartar = (pagina-1) * resultados_por_pag
+    db = abrirConexion()
+    cursor = db.cursor()
+    cursor.execute("SELECT COUNT(*) AS cant FROM albums;")
+    cant = cursor.fetchone()['cant']
+    paginas = ceil(cant / resultados_por_pag)
+    if pagina < 1 or  pagina > paginas:
+       return f"La página {pagina} es inexistente", 418
+    cursor.execute(""" SELECT AlbumId, Title, ArtistId 
+                        FROM albums LIMIT ? OFFSET ?; """, 
+                        (resultados_por_pag,descartar))
+    lista = cursor.fetchall()
+    cerrarConexion()
+    siguiente = None
+    anterior = None
+    if pagina > 1:
+       anterior = url_for('albums', page=pagina-1, _external=True)
+    if pagina < paginas:
+       siguiente = url_for('albums', page=pagina+1, _external=True)
+    info = { 'page': pagina, 'count' : cant, 'pages': paginas,
+             'next' : siguiente, 'prev' : anterior }
+    res = { 'info' : info, 'results' : lista}
+    return jsonify(res)
 
-@app.route("/api/album/<int:id>")
-def album(id):
-   db = abrirConexion()
-   cursor = db.execute("""SELECT AlbumId, Title, a.ArtistId, Name FROM albums a 
-                       INNER JOIN artists ar ON a.ArtistId = ar.ArtistId WHERE AlbumId=?;""", (id,))
-   album = cursor.fetchone()
-   url = url_for('album', id = id)
-   url2 = url_for('artista', id = id)
-   res = {"AlbumId" : album['AlbumId'],
-          "ArtistId" : album['ArtistId'],
-          "Title" : album['Title'],
-          "url": url,
-          "Artist" : {"Name" : album['Name'],
-                     "url" : url2}}
+
+
+@app.route("/api")
+def apis():
+   url = url_for('generos', _external=True)
+   url2 = url_for('artistas', _external=True)
+   url3 = url_for('albums', _external=True)
+   res = {"Generos": url,
+          "Artistas": url2,
+          "Albums":url3}
    return jsonify(res)
